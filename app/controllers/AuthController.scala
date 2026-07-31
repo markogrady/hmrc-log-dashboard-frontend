@@ -27,7 +27,7 @@ class AuthController @Inject() (
       .fold(
         formWithErrors => BadRequest(loginPage(formWithErrors, safeContinue(continue))),
         data =>
-          if (data.username.trim.equalsIgnoreCase(appConfig.loginUsername) && data.password == appConfig.loginPassword)
+          if (validCredentials(data.username, data.password))
             Redirect(safeContinue(continue).getOrElse(routes.DashboardController.onPageLoad(None, None, None).url))
               .withSession(SessionKeys.userId -> appConfig.loginUsername)
           else {
@@ -41,7 +41,15 @@ class AuthController @Inject() (
     Redirect(routes.HomeController.onPageLoad()).withNewSession
   }
 
-  // Only ever redirect within this service: absolute or scheme-relative URLs are dropped.
+  // Constant-time comparison so response timing doesn't leak how much of a guess matched.
+  private def validCredentials(username: String, password: String): Boolean = {
+    def eq(a: String, b: String) =
+      java.security.MessageDigest.isEqual(a.getBytes("UTF-8"), b.getBytes("UTF-8"))
+    eq(username.trim.toLowerCase, appConfig.loginUsername.toLowerCase) & eq(password, appConfig.loginPassword)
+  }
+
+  // Only ever redirect within this service. Rejects scheme-relative (//host) and
+  // backslash variants (/\host — browsers normalise \ to / in Location headers).
   private def safeContinue(continue: Option[String]): Option[String] =
-    continue.filter(c => c.startsWith("/") && !c.startsWith("//"))
+    continue.filter(c => c.startsWith("/") && !c.startsWith("//") && !c.contains('\\'))
 }

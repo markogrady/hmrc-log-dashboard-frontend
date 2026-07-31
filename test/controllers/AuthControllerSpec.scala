@@ -94,13 +94,22 @@ class AuthControllerSpec extends AnyWordSpec with Matchers with GuiceOneAppPerSu
     }
 
     "ignore non-local continue urls" in {
-      val request = FakeRequest(POST, "/login?continue=https%3A%2F%2Fevil.example.com")
-        .withFormUrlEncodedBody("username" -> "dev@hmrclogger.local", "password" -> "LetMeIn-2026!")
-        .withCSRFToken
-      val result  = route(app, request).get
+      // absolute, scheme-relative, and backslash-normalisation variants must all fall back to /dashboard
+      val evil = Seq(
+        "https%3A%2F%2Fevil.example.com", // https://evil.example.com
+        "%2F%2Fevil.example.com",         // //evil.example.com
+        "%2F%5Cevil.example.com",         // /\evil.example.com
+        "%2F%2F%5Cevil.example.com"       // //\evil.example.com
+      )
+      evil.foreach { continue =>
+        val request = FakeRequest(POST, s"/login?continue=$continue")
+          .withFormUrlEncodedBody("username" -> "dev@hmrclogger.local", "password" -> "LetMeIn-2026!")
+          .withCSRFToken
+        val result  = route(app, request).get
 
-      status(result) shouldBe SEE_OTHER
-      redirectLocation(result) shouldBe Some("/dashboard")
+        status(result) shouldBe SEE_OTHER
+        redirectLocation(result) shouldBe Some("/dashboard")
+      }
     }
   }
 
