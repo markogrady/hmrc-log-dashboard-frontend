@@ -1,0 +1,57 @@
+@import models.forms.LoginData
+
+@this(
+    layout: Layout,
+    formWithCSRF: FormWithCSRF,
+    govukErrorSummary: GovukErrorSummary,
+    govukInput: GovukInput,
+    govukButton: GovukButton
+)
+
+@(form: Form[LoginData], continue: Option[String])(implicit request: RequestHeader, messages: Messages)
+
+@layout(if(form.hasErrors) messages("error.title.prefix") + " " + messages("login.title") else messages("login.title")) {
+
+    @if(form.hasErrors) {
+        @govukErrorSummary(ErrorSummary(
+            errorList = form.errors.map { error =>
+                ErrorLink(href = Some(s"#${error.key}"), content = Text(messages(error.message)))
+            },
+            title = Text(messages("error.summary.title"))
+        ))
+    }
+
+    <h1 class="govuk-heading-xl">@messages("login.heading")</h1>
+
+    @formWithCSRF(action = controllers.routes.AuthController.submitLogin(continue)) {
+        @govukInput(Input(
+            id = "username",
+            name = "username",
+            inputType = "email",
+            label = Label(content = Text(messages("login.username.label")), classes = "govuk-label--m"),
+            value = form("username").value,
+            errorMessage = form("username").error.map(e => ErrorMessage(
+                content = Text(messages(e.message)),
+                visuallyHiddenText = Some(messages("error.prefix"))
+            )),
+            autocomplete = Some("username"),
+            spellcheck = Some(false),
+            classes = "govuk-input--width-20"
+        ))
+
+        @govukInput(Input(
+            id = "password",
+            name = "password",
+            inputType = "password",
+            label = Label(content = Text(messages("login.password.label")), classes = "govuk-label--m"),
+            errorMessage = form("password").error.map(e => ErrorMessage(
+                content = Text(messages(e.message)),
+                visuallyHiddenText = Some(messages("error.prefix"))
+            )),
+            autocomplete = Some("current-password"),
+            classes = "govuk-input--width-20"
+        ))
+
+        @govukButton(Button(content = Text(messages("login.button"))))
+    }
+}

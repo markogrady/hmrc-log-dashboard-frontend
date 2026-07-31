@@ -1,0 +1,151 @@
+@import models.viewmodels.{DashboardReportData, MonthOption}
+@import views.ViewHelpers
+
+@(report: DashboardReportData, generatedAtUtc: java.time.Instant)
+
+@monthDisplay = @{MonthOption(report.year, report.month).display}
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>API issues and warnings report</title>
+    <style>
+        @@page { size: A4; margin: 2cm; }
+        body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #0b0c0c; }
+        h1 { font-size: 16pt; border-bottom: 3pt solid #1d70b8; padding-bottom: 6pt; }
+        h2 { font-size: 12pt; margin-top: 16pt; }
+        h3 { font-size: 10pt; margin-bottom: 2pt; }
+        p.meta { color: #505a5f; margin: 2pt 0; }
+        table { border-collapse: collapse; width: 100%; margin-top: 6pt; }
+        th, td { border-bottom: 0.5pt solid #b1b4b6; text-align: left; padding: 3pt 6pt 3pt 0; vertical-align: top; }
+        th { color: #505a5f; font-weight: bold; }
+        td.num, th.num { text-align: right; }
+        .stat { display: inline-block; margin-right: 24pt; }
+        .stat .value { font-size: 14pt; font-weight: bold; display: block; }
+        .stat .label { color: #505a5f; }
+        .status-red { color: #d4351c; font-weight: bold; }
+        .status-green { color: #00703c; font-weight: bold; }
+        .status-yellow { color: #f47738; font-weight: bold; }
+        .endpoint-path { color: #505a5f; font-family: Consolas, monospace; font-size: 8pt; }
+        .sample { color: #505a5f; font-size: 8pt; }
+        .notice { color: #505a5f; font-style: italic; }
+        .footer { color: #505a5f; font-size: 8pt; margin-top: 18pt; }
+    </style>
+</head>
+<body>
+    <h1>API issues and warnings report</h1>
+    <p class="meta">Application: @report.application.name (@report.application.environment)</p>
+    <p class="meta">Application ID: @report.application.id</p>
+    <p class="meta">Client: @report.clientId.getOrElse("All clients")</p>
+    <p class="meta">Period: @monthDisplay</p>
+
+    <h2>Summary</h2>
+    <div>
+        <span class="stat"><span class="value">@report.summary.totalRequests</span><span class="label">Requests</span></span>
+        <span class="stat"><span class="value">@report.totalFailedRequestCount</span><span class="label">Failed requests</span></span>
+        <span class="stat"><span class="value">@report.totalWarningCount</span><span class="label">Warning log lines</span></span>
+    </div>
+
+    @if(report.summary.areas.nonEmpty) {
+        <table>
+            <thead>
+                <tr><th>API area</th><th class="num">Requests</th><th class="num">Failures</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+            @for(area <- report.summary.areas) {
+                <tr>
+                    <td>@area.apiArea</td>
+                    <td class="num">@area.totalRequests</td>
+                    <td class="num">@area.endpoints.map(_.failureCount).sum</td>
+                    <td>
+                        @area.tag match {
+                            case models.HealthTag.Fix => {<span class="status-red">Fix</span>}
+                            case models.HealthTag.Review => {<span class="status-yellow">Review</span>}
+                            case models.HealthTag.Correct => {<span class="status-green">Correct</span>}
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    <h2>Issues by endpoint</h2>
+    @if(report.issues.isEmpty) {
+        <p class="notice">No failed requests in this period.</p>
+    }
+    @for(issue <- report.issues) {
+        <h3>@issue.displayName</h3>
+        <p class="meta">@issue.apiArea — <span class="endpoint-path">@issue.httpMethod /@issue.pathTemplate</span></p>
+        <p class="meta">@issue.failureCount of @issue.totalRequests requests failed</p>
+        <table>
+            <thead>
+                <tr><th>Status</th><th>Error code</th><th class="num">Count</th><th class="num">%</th><th>Sample message</th></tr>
+            </thead>
+            <tbody>
+            @for(row <- issue.rows) {
+                <tr>
+                    <td>@if(row.status >= 500) {<span class="status-red">@row.status</span>} else {<span class="status-yellow">@row.status</span>}</td>
+                    <td>@row.errorCode.getOrElse("—")</td>
+                    <td class="num">@row.count</td>
+                    <td class="num">@row.percentOfRequests%</td>
+                    <td class="sample">@row.sampleMessage</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    <h2>Failed requests</h2>
+    @if(report.failedRequests.isEmpty) {
+        <p class="notice">No failed requests in this period.</p>
+    } else {
+        @if(report.totalFailedRequestCount > report.failedRequests.size) {
+            <p class="notice">Showing first @report.failedRequests.size of @report.totalFailedRequestCount failed requests.</p>
+        }
+        <table>
+            <thead>
+                <tr><th>Time (UTC)</th><th>Endpoint</th><th>Client</th><th class="num">Status</th><th>Error code</th><th>Correlation ID</th></tr>
+            </thead>
+            <tbody>
+            @for(row <- report.failedRequests) {
+                <tr>
+                    <td>@ViewHelpers.formatTimestamp(row.timestampUtc)</td>
+                    <td>@row.endpointDisplay</td>
+                    <td>@row.clientId.getOrElse("—")</td>
+                    <td class="num">@row.status</td>
+                    <td>@row.errorCode.getOrElse("—")</td>
+                    <td class="endpoint-path">@row.correlationId</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    <h2>Warnings</h2>
+    @if(report.warnings.isEmpty) {
+        <p class="notice">No warning log lines in this period.</p>
+    } else {
+        @if(report.totalWarningCount > report.warnings.size) {
+            <p class="notice">Showing first @report.warnings.size of @report.totalWarningCount warnings.</p>
+        }
+        <table>
+            <thead>
+                <tr><th>Time (UTC)</th><th>Endpoint</th><th>Client</th><th>Message</th></tr>
+            </thead>
+            <tbody>
+            @for(row <- report.warnings) {
+                <tr>
+                    <td>@ViewHelpers.formatTimestamp(row.timestampUtc)</td>
+                    <td>@row.endpoint.getOrElse(row.apiArea.getOrElse("—"))</td>
+                    <td>@row.clientId.getOrElse("—")</td>
+                    <td class="sample">@row.message</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    <p class="footer">Generated @ViewHelpers.formatTimestamp(generatedAtUtc) UTC — hmrc-log-dashboard-frontend.
+        This PDF is not tagged (PDF/UA); the dashboard HTML is the accessible equivalent.</p>
+</body>
+</html>

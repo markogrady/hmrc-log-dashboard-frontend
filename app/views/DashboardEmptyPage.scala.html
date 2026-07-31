@@ -1,0 +1,11 @@
+@this(layout: Layout)
+
+@()(implicit request: RequestHeader, messages: Messages)
+
+@layout(messages("dashboard.title"), showNav = true, signedIn = true) {
+    <h1 class="govuk-heading-xl">@messages("dashboard.heading")</h1>
+    <p class="govuk-body">@messages("dashboard.empty")</p>
+    <p class="govuk-body">
+        <a class="govuk-link" href="@controllers.routes.ImportController.onPageLoad()">@messages("dashboard.empty.importLink")</a>
+    </p>
+}

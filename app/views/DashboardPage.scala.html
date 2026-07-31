@@ -1,0 +1,145 @@
+@import models.viewmodels.DashboardPageViewModel
+@import views.ViewHelpers
+
+@this(
+    layout: Layout,
+    govukSelect: GovukSelect,
+    govukButton: GovukButton,
+    govukDetails: GovukDetails,
+    govukTable: GovukTable,
+    govukTag: GovukTag
+)
+
+@(vm: DashboardPageViewModel)(implicit request: RequestHeader, messages: Messages)
+
+@endpointCell(row: models.viewmodels.EndpointSummaryRow) = {
+    <a class="govuk-link" href="@controllers.routes.EndpointDetailController.onPageLoad(vm.selectedApp.id, row.endpointKey, Some(vm.selectedMonth.value), vm.selectedClient)">@row.displayName</a>
+    @if(row.pathTemplate.nonEmpty) {
+        <br /><span class="app-endpoint-path">/@row.pathTemplate</span>
+    }
+}
+
+@areaTable(area: models.viewmodels.ApiAreaSummary) = {
+    <h3 class="govuk-heading-s">@messages("dashboard.area.requests", area.totalRequests)</h3>
+    <div class="app-scrollable-table" role="region" tabindex="0" aria-label="@area.apiArea">
+        @govukTable(Table(
+            head = Some(Seq(
+                HeadCell(Text(messages("dashboard.table.method"))),
+                HeadCell(Text(messages("dashboard.table.endpoint"))),
+                HeadCell(Text(messages("dashboard.table.requests")), format = Some("numeric")),
+                HeadCell(Text(messages("dashboard.table.successPercent")), format = Some("numeric")),
+                HeadCell(Text(messages("dashboard.table.failures")), format = Some("numeric")),
+                HeadCell(Text(messages("dashboard.table.lastCalled")))
+            )),
+            rows = area.endpoints.map { row =>
+                Seq(
+                    TableRow(Text(row.httpMethod)),
+                    TableRow(HtmlContent(endpointCell(row))),
+                    TableRow(Text(row.requests.toString), format = Some("numeric")),
+                    TableRow(Text(ViewHelpers.formatPercent(row.successPercent)), format = Some("numeric")),
+                    TableRow(Text(row.failureCount.toString), format = Some("numeric")),
+                    TableRow(Text(ViewHelpers.formatLastCalled(row.lastCalledUtc)))
+                )
+            }
+        ))
+    </div>
+}
+
+@areaSummaryHtml(area: models.viewmodels.ApiAreaSummary) = {
+    @area.apiArea @govukTag(ViewHelpers.healthTag(area.tag))
+}
+
+@layout(messages("dashboard.title"), showNav = true, signedIn = true) {
+
+    <h1 class="govuk-heading-xl">@messages("dashboard.heading")</h1>
+
+    <dl class="govuk-summary-list govuk-summary-list--no-border">
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("dashboard.meta.application")</dt>
+            <dd class="govuk-summary-list__value" data-application-name>@vm.selectedApp.name</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("dashboard.meta.environment")</dt>
+            <dd class="govuk-summary-list__value" data-environment>@vm.selectedApp.environment</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("dashboard.meta.lastRequest")</dt>
+            <dd class="govuk-summary-list__value" data-last-api-request>
+                @vm.summary.lastApiRequestUtc.map(ViewHelpers.formatDayMonth).getOrElse(messages("dashboard.meta.never"))
+            </dd>
+        </div>
+    </dl>
+
+    <form method="get" action="@controllers.routes.DashboardController.onPageLoad(None, None, None).url" class="app-filter-form">
+
+        @govukSelect(Select(
+            id = "month",
+            name = "month",
+            label = Label(content = Text(messages("dashboard.filter.month")), classes = "govuk-label--s"),
+            items = vm.months.map { m =>
+                SelectItem(value = Some(m.value), text = m.display, selected = m == vm.selectedMonth)
+            }
+        ))
+        <p class="govuk-body">
+            @if(vm.isCurrentMonth) {
+                <strong class="govuk-tag govuk-tag--blue" data-month-so-far>@messages("dashboard.filter.monthSoFar")</strong>
+            } else {
+                <strong class="govuk-tag govuk-tag--grey">@messages("dashboard.filter.historicMonth")</strong>
+            }
+        </p>
+
+        @govukSelect(Select(
+            id = "appId",
+            name = "appId",
+            label = Label(content = Text(messages("dashboard.filter.application")), classes = "govuk-label--s"),
+            items = vm.applications.map { a =>
+                SelectItem(
+                    value = Some(a.id.toString),
+                    text = s"${a.name} (${a.environment}) — ${a.id}",
+                    selected = a.id == vm.selectedApp.id
+                )
+            }
+        ))
+
+        @govukSelect(Select(
+            id = "client",
+            name = "client",
+            label = Label(content = Text(messages("dashboard.filter.client")), classes = "govuk-label--s"),
+            items = SelectItem(value = Some(""), text = messages("dashboard.filter.allClients"), selected = vm.selectedClient.isEmpty) +:
+                vm.clients.map { c =>
+                    SelectItem(value = Some(c), text = c, selected = vm.selectedClient.contains(c))
+                }
+        ))
+
+        @govukButton(Button(content = Text(messages("dashboard.filter.apply")), classes = "govuk-button--secondary"))
+    </form>
+
+    <p class="govuk-body">
+        <strong class="govuk-tag govuk-tag--turquoise">@messages("dashboard.regime")</strong>
+    </p>
+
+    <p class="govuk-body" aria-live="polite" data-total-request-count="@vm.summary.totalRequests">
+        @messages("dashboard.showing", vm.summary.totalRequests)
+        <span class="govuk-visually-hidden">@messages("dashboard.showing.context", vm.selectedApp.name, vm.selectedMonth.display)</span>
+    </p>
+
+    @if(vm.summary.totalRequests > 0) {
+        @govukButton(Button(
+            href = Some(controllers.routes.PdfController.exportPdf(vm.selectedApp.id, vm.selectedMonth.value, vm.selectedClient).url),
+            content = Text(messages("dashboard.exportPdf")),
+            classes = "govuk-button--secondary",
+            attributes = Map("download" -> "download")
+        ))
+    }
+
+    @for(area <- vm.summary.areas) {
+        @govukDetails(Details(
+            summary = HtmlContent(areaSummaryHtml(area)),
+            content = HtmlContent(areaTable(area))
+        ))
+    }
+
+    @if(vm.summary.areas.isEmpty) {
+        <p class="govuk-body">@messages("dashboard.noRequests")</p>
+    }
+}

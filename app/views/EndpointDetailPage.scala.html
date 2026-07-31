@@ -1,0 +1,115 @@
+@import java.util.UUID
+@import models.viewmodels.{EndpointDetailResult, MonthOption}
+@import views.ViewHelpers
+
+@this(
+    layout: Layout,
+    govukTable: GovukTable,
+    govukTag: GovukTag,
+    govukDetails: GovukDetails,
+    govukBackLink: GovukBackLink
+)
+
+@(appId: UUID, endpointKey: String, detail: EndpointDetailResult, month: MonthOption, client: Option[String], rawLines: Map[String, Seq[String]])(implicit request: RequestHeader, messages: Messages)
+
+@pageName = @{detail.definition.map(_.displayName).getOrElse(endpointKey)}
+
+@correlationCell(correlationId: String) = {
+    @govukDetails(Details(
+        summary = Text(correlationId),
+        classes = "app-correlation-details govuk-!-margin-bottom-0",
+        content = HtmlContent(rawLinesBlock(correlationId))
+    ))
+}
+
+@rawLinesBlock(correlationId: String) = {
+    <pre class="app-log-lines">@rawLines.getOrElse(correlationId, Nil).mkString("\n")</pre>
+}
+
+@layout(pageName, showNav = true, signedIn = true) {
+
+    @govukBackLink(BackLink(
+        href = controllers.routes.DashboardController.onPageLoad(Some(appId), Some(month.value), client).url,
+        content = Text(messages("detail.back"))
+    ))
+
+    <h1 class="govuk-heading-xl">@pageName</h1>
+
+    <dl class="govuk-summary-list govuk-summary-list--no-border">
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("detail.meta.endpoint")</dt>
+            <dd class="govuk-summary-list__value">
+                @detail.definition.map { d =>
+                    <code>@d.httpMethod /@d.pathTemplate</code>
+                }.getOrElse {
+                    <code>@endpointKey</code>
+                }
+            </dd>
+        </div>
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("detail.meta.period")</dt>
+            <dd class="govuk-summary-list__value">
+                @month.display@client.map { c => — @c }
+            </dd>
+        </div>
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("detail.meta.requests")</dt>
+            <dd class="govuk-summary-list__value">
+                @messages("detail.meta.requests.value", detail.totalRequests, detail.failureCount)
+            </dd>
+        </div>
+    </dl>
+
+    <h2 class="govuk-heading-l">@messages("detail.issues.heading")</h2>
+
+    @if(detail.breakdown.isEmpty) {
+        <p class="govuk-body" data-no-issues>@messages("detail.issues.none")</p>
+    } else {
+        @govukTable(Table(
+            head = Some(Seq(
+                HeadCell(Text(messages("detail.issues.action"))),
+                HeadCell(Text(messages("detail.issues.requests")), format = Some("numeric")),
+                HeadCell(Text(messages("detail.issues.percent")), format = Some("numeric")),
+                HeadCell(Text(messages("detail.issues.details")))
+            )),
+            rows = detail.breakdown.map { row =>
+                Seq(
+                    TableRow(HtmlContent(govukTag(
+                        if(row.action == "Fix") Tag(content = Text("Fix"), classes = "govuk-tag--red")
+                        else Tag(content = Text("Review"), classes = "govuk-tag--yellow")
+                    ))),
+                    TableRow(Text(row.requests.toString), format = Some("numeric")),
+                    TableRow(Text(ViewHelpers.formatPercent(row.percent)), format = Some("numeric")),
+                    TableRow(Text(row.details))
+                )
+            }
+        ))
+    }
+
+    <h2 class="govuk-heading-l">@messages("detail.recent.heading")</h2>
+
+    @if(detail.recentRequests.isEmpty) {
+        <p class="govuk-body">@messages("detail.recent.none")</p>
+    } else {
+        <div class="app-scrollable-table" role="region" tabindex="0" aria-label="@messages("detail.recent.heading")">
+            @govukTable(Table(
+                head = Some(Seq(
+                    HeadCell(Text(messages("detail.recent.timestamp"))),
+                    HeadCell(Text(messages("detail.recent.client"))),
+                    HeadCell(Text(messages("detail.recent.identifier"))),
+                    HeadCell(Text(messages("detail.recent.status"))),
+                    HeadCell(Text(messages("detail.recent.correlationId")))
+                )),
+                rows = detail.recentRequests.map { row =>
+                    Seq(
+                        TableRow(Text(ViewHelpers.formatTimestamp(row.timestampUtc))),
+                        TableRow(Text(row.clientId.getOrElse("—"))),
+                        TableRow(Text(row.identifier.getOrElse("—"))),
+                        TableRow(HtmlContent(govukTag(ViewHelpers.statusTag(row.status)))),
+                        TableRow(HtmlContent(correlationCell(row.correlationId)))
+                    )
+                }
+            ))
+        </div>
+    }
+}

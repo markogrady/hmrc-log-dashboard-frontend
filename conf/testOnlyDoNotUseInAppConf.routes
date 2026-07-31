@@ -1,0 +1,6 @@
+# Test-only routes (MDTP idiom). Run with:
+#   sbt "run -Dapplication.router=testOnlyDoNotUseInAppConf.Routes"
+
+POST    /test-only/seed    controllers.testonly.SeedController.seed(force: Boolean ?= false)
+
+->      /                  prod.Routes

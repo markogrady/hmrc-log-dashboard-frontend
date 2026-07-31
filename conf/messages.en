@@ -1,0 +1,109 @@
+service.name = HMRC Developer Hub
+
+site.govuk = GOV.UK
+site.signIn = Sign in
+site.signOut = Sign out
+site.back = Back
+
+landing.title = API request logs
+landing.heading = API request logs
+landing.intro = Use this service to review API request logs for applications on the HMRC API platform.
+landing.youCan = You can:
+landing.bullet.1 = see Making Tax Digital for Income Tax Self Assessment endpoint usage by application, client and month
+landing.bullet.2 = identify failing endpoints and the error codes behind them
+landing.bullet.3 = drill into individual requests and their raw log lines
+landing.bullet.4 = import log files or pasted log lines in the HMRC API platform logback format
+landing.startButton = Start now
+
+login.title = Sign in
+login.heading = Sign in
+login.username.label = Email address
+login.password.label = Password
+login.button = Sign in
+login.error.username.required = Enter your email address
+login.error.password.required = Enter your password
+login.error.invalid = The email address or password is not correct
+
+nav.ariaLabel = Service information
+nav.menu = Menu
+nav.dashboard = API requests
+nav.import = Import logs
+nav.documentation = Documentation
+
+dashboard.title = API requests
+dashboard.heading = API requests
+dashboard.meta.application = Application name
+dashboard.meta.environment = Environment
+dashboard.meta.lastRequest = Last API request
+dashboard.meta.never = Never
+dashboard.filter.month = Period
+dashboard.filter.monthSoFar = Month so far
+dashboard.filter.historicMonth = Historic month
+dashboard.filter.application = Application
+dashboard.filter.client = Client
+dashboard.filter.allClients = All clients
+dashboard.filter.apply = Apply filters
+dashboard.regime = MTD for ITSA
+dashboard.showing = Showing {0} requests
+dashboard.showing.context = for {0} in {1}
+dashboard.exportPdf = Export report as PDF
+dashboard.noRequests = There are no API requests for this application, period and client.
+dashboard.empty = No applications have any log data yet.
+dashboard.empty.importLink = Import log lines to get started
+dashboard.area.requests = {0} requests
+dashboard.table.method = Method
+dashboard.table.endpoint = Endpoint
+dashboard.table.requests = Requests
+dashboard.table.successPercent = Success %
+dashboard.table.failures = Failures
+dashboard.table.lastCalled = Last called
+
+detail.back = Back to API requests
+detail.meta.endpoint = Endpoint
+detail.meta.period = Period
+detail.meta.requests = Requests
+detail.meta.requests.value = {0} total, {1} failed
+detail.issues.heading = Issues
+detail.issues.none = No issues in this period.
+detail.issues.action = Action
+detail.issues.requests = Requests
+detail.issues.percent = % Requests
+detail.issues.details = Details
+detail.recent.heading = Recent requests
+detail.recent.none = No requests in this period.
+detail.recent.timestamp = Timestamp (UTC)
+detail.recent.client = Client
+detail.recent.identifier = Identifier
+detail.recent.status = Status
+detail.recent.correlationId = Correlation ID
+
+import.title = Import logs
+import.heading = Import logs
+import.intro = Paste log lines or upload a log file in the HMRC API platform logback format. Lines that cannot be parsed are kept and flagged.
+import.paste.label = Paste log lines
+import.paste.hint = One log line per row, in the vat-api logback format with optional appId and clientId fields.
+import.paste.button = Import pasted lines
+import.upload.heading = Or upload a log file
+import.upload.label = Upload a file
+import.upload.hint = .log or .txt, up to 20MB
+import.upload.button = Import file
+import.error.emptyPaste = Enter at least one log line to import
+import.error.noFile = Select a log file to import
+import.error.fileType = The selected file must be a .log or .txt file
+import.error.tooLarge = The selected file must be smaller than 20MB
+import.success.heading = Import complete
+import.success.detail = {0} lines read, {1} parsed, {2} could not be parsed.
+import.success.unparsedSamples = First unparsed lines:
+
+error.summary.title = There is a problem
+error.prefix = Error:
+error.title.prefix = Error:
+
+error.problem.title = Sorry, there is a problem with the service
+error.problem.heading = Sorry, there is a problem with the service
+error.problem.message = Try again later.
+
+error.notFound.title = Page not found
+error.notFound.heading = Page not found
+error.notFound.message.1 = If you typed the web address, check it is correct.
+error.notFound.message.2 = If you pasted the web address, check you copied the entire address.

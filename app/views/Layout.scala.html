@@ -1,0 +1,48 @@
+@this(hmrcStandardPage: HmrcStandardPage)
+
+@(pageTitle: String, showNav: Boolean = false, signedIn: Boolean = false)(contentBlock: Html)(implicit request: RequestHeader, messages: Messages)
+
+@navigation = {
+    @if(showNav) {
+        <section aria-label="@messages("nav.ariaLabel")" class="govuk-service-navigation" data-module="govuk-service-navigation">
+            <div class="govuk-width-container">
+                <div class="govuk-service-navigation__container">
+                    <nav aria-label="@messages("nav.menu")" class="govuk-service-navigation__wrapper">
+                        <ul class="govuk-service-navigation__list">
+                            <li class="govuk-service-navigation__item @if(request.path == "/dashboard"){govuk-service-navigation__item--active}">
+                                <a class="govuk-service-navigation__link" href="@controllers.routes.DashboardController.onPageLoad(None, None, None)"
+                                   @if(request.path == "/dashboard"){aria-current="true"}>@messages("nav.dashboard")</a>
+                            </li>
+                            <li class="govuk-service-navigation__item @if(request.path.startsWith("/dashboard/import")){govuk-service-navigation__item--active}">
+                                <a class="govuk-service-navigation__link" href="@controllers.routes.ImportController.onPageLoad()"
+                                   @if(request.path.startsWith("/dashboard/import")){aria-current="true"}>@messages("nav.import")</a>
+                            </li>
+                            <li class="govuk-service-navigation__item">
+                                <a class="govuk-service-navigation__link" href="https://developer.service.hmrc.gov.uk/api-documentation" rel="noreferrer noopener" target="_blank">@messages("nav.documentation")</a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+        </section>
+    }
+}
+
+@additionalHead = {
+    <link rel="stylesheet" href="@controllers.routes.Assets.versioned("stylesheets/application.css")" />
+}
+
+@hmrcStandardPage(
+    HmrcStandardPageParams(
+        serviceURLs = ServiceURLs(
+            serviceUrl = Some(controllers.routes.DashboardController.onPageLoad(None, None, None).url),
+            signOutUrl = if(signedIn) Some(controllers.routes.AuthController.signOut().url) else None
+        ),
+        serviceName = Some(messages("service.name")),
+        pageTitle   = Some(pageTitle + " – " + messages("service.name") + " – GOV.UK"),
+        templateOverrides = TemplateOverrides(
+            additionalHeadBlock = Some(additionalHead),
+            beforeContentBlock = if(showNav) Some(navigation) else None
+        )
+    )
+)(contentBlock)

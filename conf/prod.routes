@@ -1,0 +1,3 @@
+# MDTP convention: prod.Routes is the top-level router (play.http.router = prod.Routes)
+
+->    /    app.Routes

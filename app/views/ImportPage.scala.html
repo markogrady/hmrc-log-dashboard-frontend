@@ -1,0 +1,70 @@
+@import services.IngestResult
+
+@this(
+    layout: Layout,
+    formWithCSRF: FormWithCSRF,
+    govukErrorSummary: GovukErrorSummary,
+    govukTextarea: GovukTextarea,
+    govukFileUpload: GovukFileUpload,
+    govukButton: GovukButton,
+    govukNotificationBanner: GovukNotificationBanner
+)
+
+@(errors: Seq[String], result: Option[IngestResult])(implicit request: RequestHeader, messages: Messages)
+
+@successContent(r: IngestResult) = {
+    <h3 class="govuk-notification-banner__heading">@messages("import.success.heading")</h3>
+    <p class="govuk-body">@messages("import.success.detail", r.linesRead, r.parsedCount, r.failedCount)</p>
+    @if(r.failedSamples.nonEmpty) {
+        <p class="govuk-body">@messages("import.success.unparsedSamples")</p>
+        <pre class="app-log-lines">@r.failedSamples.mkString("\n")</pre>
+    }
+}
+
+@layout(if(errors.nonEmpty) messages("error.title.prefix") + " " + messages("import.title") else messages("import.title"), showNav = true, signedIn = true) {
+
+    @if(errors.nonEmpty) {
+        @govukErrorSummary(ErrorSummary(
+            errorList = errors.map { key =>
+                ErrorLink(href = Some("#log-paste"), content = Text(messages(key)))
+            },
+            title = Text(messages("error.summary.title"))
+        ))
+    }
+
+    @result.map { r =>
+        @govukNotificationBanner(NotificationBanner(
+            content = HtmlContent(successContent(r)),
+            bannerType = Some("success")
+        ))
+    }
+
+    <h1 class="govuk-heading-xl">@messages("import.heading")</h1>
+
+    <p class="govuk-body">@messages("import.intro")</p>
+
+    @formWithCSRF(action = controllers.routes.ImportController.submitPaste()) {
+        @govukTextarea(Textarea(
+            id = "log-paste",
+            name = "log-paste",
+            label = Label(content = Text(messages("import.paste.label")), classes = "govuk-label--m"),
+            hint = Some(Hint(content = Text(messages("import.paste.hint")))),
+            rows = 10,
+            classes = "app-log-textarea"
+        ))
+        @govukButton(Button(content = Text(messages("import.paste.button"))))
+    }
+
+    <h2 class="govuk-heading-m">@messages("import.upload.heading")</h2>
+
+    @formWithCSRF(action = controllers.routes.ImportController.submitUpload(), Symbol("enctype") -> "multipart/form-data") {
+        @govukFileUpload(FileUpload(
+            id = "log-file",
+            name = "log-file",
+            label = Label(content = Text(messages("import.upload.label")), classes = "govuk-label--m"),
+            hint = Some(Hint(content = Text(messages("import.upload.hint")))),
+            attributes = Map("accept" -> ".log,.txt")
+        ))
+        @govukButton(Button(content = Text(messages("import.upload.button")), classes = "govuk-button--secondary"))
+    }
+}

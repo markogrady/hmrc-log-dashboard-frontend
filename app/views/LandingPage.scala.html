@@ -1,0 +1,24 @@
+@this(layout: Layout, govukButton: GovukButton)
+
+@()(implicit request: RequestHeader, messages: Messages)
+
+@layout(messages("landing.title")) {
+    <h1 class="govuk-heading-xl">@messages("landing.heading")</h1>
+
+    <p class="govuk-body">@messages("landing.intro")</p>
+
+    <p class="govuk-body">@messages("landing.youCan")</p>
+
+    <ul class="govuk-list govuk-list--bullet">
+        <li>@messages("landing.bullet.1")</li>
+        <li>@messages("landing.bullet.2")</li>
+        <li>@messages("landing.bullet.3")</li>
+        <li>@messages("landing.bullet.4")</li>
+    </ul>
+
+    @govukButton(Button(
+        href = Some("/dashboard"),
+        isStartButton = true,
+        content = Text(messages("landing.startButton"))
+    ))
+}

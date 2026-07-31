@@ -1,0 +1,39 @@
+/* Small app-specific additions on top of hmrc-frontend. */
+
+.app-endpoint-path {
+    color: #505a5f;
+    font-size: 1rem;
+}
+
+.app-log-lines {
+    background: #f3f2f1;
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 0.875rem;
+    padding: 10px;
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+}
+
+.app-log-textarea {
+    font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+    font-size: 1rem;
+}
+
+/* Accessible scrollable-region pattern for wide tables. */
+.app-scrollable-table {
+    overflow-x: auto;
+}
+
+.app-scrollable-table:focus {
+    outline: 3px solid #ffdd00;
+    outline-offset: 0;
+}
+
+.app-correlation-details .govuk-details__summary {
+    font-size: 1rem;
+}
+
+.app-filter-form {
+    margin-bottom: 20px;
+}
