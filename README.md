@@ -5,8 +5,14 @@ that simulates HMRC's side of the API platform: it ingests log lines in the hmrc
 logback format (extended with `appId=[…]` and `clientId=[…]` MDC fields) and shows a
 Developer-Hub-style dashboard of MTD ITSA endpoint usage per application, client and month.
 
-This is a rewrite of the .NET Blazor HmrcLogger app to HMRC standards. The phased
-specification is in [docs/SPEC.md](docs/SPEC.md).
+This is a rewrite of a .NET Blazor app to HMRC standards, modelled on
+[hmrc-frontend-scaffold.g8](https://github.com/hmrc/hmrc-frontend-scaffold.g8) and
+real MDTP services. The phased specification is in [docs/SPEC.md](docs/SPEC.md).
+
+**It is not an HMRC project** and is not affiliated with or endorsed by HMRC. It
+simulates the HMRC side of the API platform for local development and demo
+purposes; all data is synthetic and generated on first run. There is no
+connection to any real HMRC system or taxpayer data.
 
 ## Prerequisites
 
@@ -35,7 +41,12 @@ Every sbt session must use JDK 21 — use the wrapper, which pins it:
 On first boot with an empty database the service seeds ~10,000 deterministic sample
 log lines across 3 applications (`seed-on-startup = true` in application.conf).
 
-Sign in: `dev@hmrclogger.local` / `LetMeIn-2026!` (config-held; see `login` in application.conf).
+Sign in: `dev@hmrclogger.local` / `LetMeIn-2026!`
+
+> These are **demo credentials for a local-only simulator** — they are published
+> deliberately, guard nothing but synthetic generated data, and are not used
+> anywhere else. Override them with the `HMRCLOG_LOGIN_USERNAME` and
+> `HMRCLOG_LOGIN_PASSWORD` environment variables for any non-local run.
 
 ### Reseed (test-only routes, MDTP idiom)
 
