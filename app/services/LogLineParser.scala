@@ -11,7 +11,9 @@ import models._
 /**
  * Parses log lines in the hmrc/vat-api logback pattern:
  * `%date{ISO8601} level=[%level] logger=[%logger] thread=[%thread] rid=[..] appId=[..] clientId=[..] message=[..]`.
- * The appId/clientId MDC fields are optional so plain vat-api lines still parse.
+ * The appId/clientId MDC fields are optional so plain vat-api lines still parse. Five further optional
+ * MDC fields may follow clientId, in this order, carrying the request's fraud prevention headers:
+ * `govClientPublicIP=[..] govVendorPublicIP=[..] govClientDeviceID=[..] govClientLocalIPs=[..] govVendorLicenseIDs=[..]`.
  * Never throws: unparseable lines come back with parsed = false and the raw line preserved.
  */
 @Singleton
@@ -45,6 +47,11 @@ class LogLineParser {
               requestId = noneIfBlank(outer.group("rid")),
               clientId = noneIfBlank(outer.group("clientId")),
               applicationId = parseUuid(outer.group("appId")),
+              govClientPublicIp = noneIfBlank(outer.group("clientPublicIp")),
+              govVendorPublicIp = noneIfBlank(outer.group("vendorPublicIp")),
+              govClientDeviceId = noneIfBlank(outer.group("clientDeviceId")),
+              govClientLocalIps = noneIfBlank(outer.group("clientLocalIps")),
+              govVendorLicenseIds = noneIfBlank(outer.group("vendorLicenseIds")),
               message = outer.group("msg")
             )
             parseMessage(base)
@@ -132,6 +139,11 @@ object LogLineParser {
       "(?:user=\\[(?<user>[^\\]]*)\\]\\s+)?" +
       "(?:appId=\\[(?<appId>[^\\]]*)\\]\\s+)?" +
       "(?:clientId=\\[(?<clientId>[^\\]]*)\\]\\s+)?" +
+      "(?:govClientPublicIP=\\[(?<clientPublicIp>[^\\]]*)\\]\\s+)?" +
+      "(?:govVendorPublicIP=\\[(?<vendorPublicIp>[^\\]]*)\\]\\s+)?" +
+      "(?:govClientDeviceID=\\[(?<clientDeviceId>[^\\]]*)\\]\\s+)?" +
+      "(?:govClientLocalIPs=\\[(?<clientLocalIps>[^\\]]*)\\]\\s+)?" +
+      "(?:govVendorLicenseIDs=\\[(?<vendorLicenseIds>[^\\]]*)\\]\\s+)?" +
       "message=\\[(?<msg>.*)\\]\\s*$"
   )
 

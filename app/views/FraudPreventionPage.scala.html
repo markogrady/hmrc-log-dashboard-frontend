@@ -1,0 +1,111 @@
+@import models.viewmodels.{CheckStatus, FraudCheckResult, FraudPreventionReport}
+@import views.ViewHelpers
+
+@this(
+    layout: Layout,
+    govukTable: GovukTable,
+    govukTag: GovukTag,
+    govukDetails: GovukDetails,
+    govukBackLink: GovukBackLink,
+    govukWarningText: GovukWarningText
+)
+
+@(report: FraudPreventionReport)(implicit request: RequestHeader, messages: Messages)
+
+@maxValues = @{50}
+
+@valuesTable(check: FraudCheckResult) = {
+    @if(check.values.isEmpty) {
+        <p class="govuk-body">@messages("fraudPrevention.values.none")</p>
+    } else {
+        @if(check.values.size > maxValues) {
+            <p class="govuk-body">@messages("fraudPrevention.values.truncated", maxValues, check.values.size)</p>
+        }
+        <div class="app-scrollable-table" role="region" tabindex="0" aria-label="@messages(s"fraudPrevention.check.${check.key}.values")">
+            @govukTable(Table(
+                head = Some(Seq(
+                    HeadCell(Text(messages("fraudPrevention.values.value"))),
+                    HeadCell(Text(messages("fraudPrevention.values.requests")), format = Some("numeric"))
+                )),
+                rows = check.values.take(maxValues).map { case (value, requests) =>
+                    Seq(
+                        TableRow(Text(value)),
+                        TableRow(Text(requests.toString), format = Some("numeric"))
+                    )
+                }
+            ))
+        </div>
+    }
+}
+
+@layout(messages("fraudPrevention.title"), showNav = true, signedIn = true) {
+
+    @govukBackLink(BackLink(
+        href = controllers.routes.DashboardController.onPageLoad(Some(report.application.id), None, None).url,
+        content = Text(messages("fraudPrevention.back"))
+    ))
+
+    <h1 class="govuk-heading-xl">@messages("fraudPrevention.heading")</h1>
+
+    <p class="govuk-body">@messages("fraudPrevention.intro")</p>
+
+    <dl class="govuk-summary-list govuk-summary-list--no-border">
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("fraudPrevention.meta.application")</dt>
+            <dd class="govuk-summary-list__value">@report.application.name</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("fraudPrevention.meta.environment")</dt>
+            <dd class="govuk-summary-list__value">@report.application.environment</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("fraudPrevention.meta.requests")</dt>
+            <dd class="govuk-summary-list__value" data-requests-checked>@report.totalRequests</dd>
+        </div>
+        <div class="govuk-summary-list__row">
+            <dt class="govuk-summary-list__key">@messages("fraudPrevention.meta.withoutHeaders")</dt>
+            <dd class="govuk-summary-list__value" data-requests-without-headers>@report.requestsWithoutHeaders</dd>
+        </div>
+    </dl>
+
+    @if(report.requestsWithoutHeaders == report.totalRequests) {
+        <p class="govuk-body" data-no-headers>@messages("fraudPrevention.noHeaders")</p>
+    }
+
+    @for(check <- report.problems) {
+        @govukWarningText(WarningText(
+            iconFallbackText = Some(messages("fraudPrevention.warning.fallback")),
+            content = Text(messages(s"fraudPrevention.check.${check.key}.problem", check.distinctCount, check.required.getOrElse(0), check.affectedRequests))
+        ))
+    }
+
+    @if(report.overall == CheckStatus.Pass) {
+        <p class="govuk-body" data-all-passed>@messages("fraudPrevention.allPassed")</p>
+    }
+
+    <h2 class="govuk-heading-l">@messages("fraudPrevention.checks.heading")</h2>
+
+    @govukTable(Table(
+        head = Some(Seq(
+            HeadCell(Text(messages("fraudPrevention.table.check"))),
+            HeadCell(Text(messages("fraudPrevention.table.result"))),
+            HeadCell(Text(messages("fraudPrevention.table.found")))
+        )),
+        rows = report.checks.map { check =>
+            Seq(
+                TableRow(Text(messages(s"fraudPrevention.check.${check.key}.name"))),
+                TableRow(HtmlContent(govukTag(ViewHelpers.checkTag(check.status)))),
+                TableRow(Text(messages(s"fraudPrevention.check.${check.key}.found", check.distinctCount, check.required.getOrElse(0))))
+            )
+        }
+    ))
+
+    <h2 class="govuk-heading-l">@messages("fraudPrevention.values.heading")</h2>
+
+    @for(check <- report.checks) {
+        @govukDetails(Details(
+            summary = Text(messages(s"fraudPrevention.check.${check.key}.values")),
+            content = HtmlContent(valuesTable(check))
+        ))
+    }
+}

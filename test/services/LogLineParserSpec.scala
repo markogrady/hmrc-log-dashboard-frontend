@@ -105,6 +105,57 @@ class LogLineParserSpec extends AnyWordSpec with Matchers {
       entry.apiArea shouldBe Some("VAT")
     }
 
+    "parse the optional fraud prevention header fields" in {
+      val line =
+        s"2026-06-14 09:15:23,123 level=[INFO] logger=[v3.controllers.RetrieveEmploymentController] thread=[t-1] rid=[r1] " +
+          s"appId=[$appId] clientId=[CUST-004221] " +
+          "govClientPublicIP=[198.51.100.7] govVendorPublicIP=[203.0.113.6] " +
+          "govClientDeviceID=[beec798b-b366-47fa-b1f8-92cede14a1ce] govClientLocalIPs=[10.1.2.3,10.3.4.2] " +
+          "govVendorLicenseIDs=[my-software=8D7963490527D33716835EE7C195516D] " +
+          "message=[[RetrieveEmploymentController][retrieveEmployment] Retrieve an employment for NINO : AA123456A " +
+          "with correlationId : ff66]"
+
+      val entry = parser.parse(line)
+
+      entry.parsed shouldBe true
+      entry.clientId shouldBe Some("CUST-004221")
+      entry.govClientPublicIp shouldBe Some("198.51.100.7")
+      entry.govVendorPublicIp shouldBe Some("203.0.113.6")
+      entry.govClientDeviceId shouldBe Some("beec798b-b366-47fa-b1f8-92cede14a1ce")
+      entry.govClientLocalIps shouldBe Some("10.1.2.3,10.3.4.2")
+      entry.govVendorLicenseIds shouldBe Some("my-software=8D7963490527D33716835EE7C195516D")
+      entry.correlationId shouldBe Some("ff66")
+      entry.endpointKey shouldBe Some("RetrieveEmploymentController.retrieveEmployment")
+    }
+
+    "parse a line carrying only some fraud prevention header fields" in {
+      val line =
+        s"2026-06-14 09:15:23,123 level=[INFO] logger=[x] thread=[t] rid=[r] appId=[$appId] clientId=[C1] " +
+          "govClientPublicIP=[198.51.100.7] govClientDeviceID=[] " +
+          "message=[[RetrieveEmploymentController][retrieveEmployment] Retrieve with correlationId : gg77]"
+
+      val entry = parser.parse(line)
+
+      entry.parsed shouldBe true
+      entry.govClientPublicIp shouldBe Some("198.51.100.7")
+      entry.govVendorPublicIp shouldBe None
+      entry.govClientDeviceId shouldBe None
+      entry.govClientLocalIps shouldBe None
+      entry.govVendorLicenseIds shouldBe None
+    }
+
+    "leave the fraud prevention header fields empty on lines without them" in {
+      val line =
+        s"2026-06-14 09:15:24,001 level=[INFO] logger=[x] thread=[t] rid=[r] appId=[$appId] clientId=[C1] " +
+          "message=[[RetrieveEmploymentController][retrieveEmployment] Success response received with correlationId : hh88]"
+
+      val entry = parser.parse(line)
+
+      entry.parsed shouldBe true
+      entry.govClientPublicIp shouldBe None
+      entry.govVendorLicenseIds shouldBe None
+    }
+
     "keep but flag an unrecognised controller" in {
       val line =
         s"2026-06-14 09:15:23,123 level=[INFO] logger=[x] thread=[t] rid=[r] appId=[$appId] clientId=[C1] " +

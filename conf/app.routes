@@ -13,6 +13,7 @@ POST        /dashboard/import/paste                        controllers.ImportCon
 POST        /dashboard/import/upload                       controllers.ImportController.submitUpload()
 GET         /dashboard/export/pdf                          controllers.PdfController.exportPdf(appId: UUID, month: String, client: Option[String] ?= None)
 GET         /dashboard/:appId/endpoint/:endpointKey        controllers.EndpointDetailController.onPageLoad(appId: UUID, endpointKey: String, month: Option[String] ?= None, client: Option[String] ?= None)
+GET         /dashboard/:appId/fraud-prevention-headers     controllers.FraudPreventionController.onPageLoad(appId: UUID)
 
 ->          /hmrc-frontend                                 hmrcfrontend.Routes
 GET         /assets/*file                                  controllers.Assets.versioned(path = "/public", file: Asset)

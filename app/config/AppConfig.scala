@@ -10,4 +10,7 @@ class AppConfig @Inject() (config: Configuration) {
   val loginPassword: String    = config.get[String]("login.password")
   val seedOnStartup: Boolean   = config.get[Boolean]("seed-on-startup")
   val uploadMaxSizeBytes: Long = config.get[Long]("upload.max-size-bytes")
+
+  val fraudMinDistinctClientValues: Int = config.get[Int]("fraud-prevention.min-distinct-client-values")
+  val fraudMinDistinctLicenceIds: Int   = config.get[Int]("fraud-prevention.min-distinct-licence-ids")
 }

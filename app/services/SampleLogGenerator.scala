@@ -15,7 +15,19 @@ final case class SampleApplication(
   environment: String,
   softwareVersion: String,
   clientCount: Int,
-  volumeShare: Double
+  volumeShare: Double,
+  // Fraud prevention header mix: None = one licence per client; singleSharedDevice = every request comes
+  // from one device whose public IP is the vendor's server IP (the deliberately failing case).
+  licenceCount: Option[Int] = None,
+  singleSharedDevice: Boolean = false
+)
+
+/** The fraud prevention header values one device sends. */
+final case class SampleDevice(
+  clientPublicIp: String,
+  deviceId: String,
+  localIps: String,
+  licenceIds: String
 )
 
 /**
@@ -33,7 +45,9 @@ class SampleLogGenerator {
   /** Generates raw log lines (two per request: start + outcome), ordered by timestamp. */
   def generate(totalRequests: Int = 5000, nowUtc: Option[Instant] = None): Seq[String] = {
     val random      = new Random(RandomSeed)
-    val anchor      = LocalDateTime.ofInstant(nowUtc.getOrElse(Instant.now()), ZoneOffset.UTC)
+    // Separate stream for fraud prevention header values so the request/outcome sequence above is unchanged.
+    val headerRandom = new Random(RandomSeed + 1)
+    val anchor     = LocalDateTime.ofInstant(nowUtc.getOrElse(Instant.now()), ZoneOffset.UTC)
     val windowStart = anchor.withDayOfMonth(1).truncatedTo(ChronoUnit.DAYS).minusMonths(5)
     val windowSeconds = ChronoUnit.SECONDS.between(windowStart, anchor).toDouble
 
@@ -47,13 +61,18 @@ class SampleLogGenerator {
 
     val lines = Vector.newBuilder[(LocalDateTime, String)]
 
-    applications.foreach { app =>
+    applications.zipWithIndex.foreach { case (app, appIndex) =>
       val clients = (1 to app.clientCount).map(_ => (s"CUST-${randomDigits(random, 6)}", randomNino(random)))
+
+      val vendorPublicIp = s"203.0.113.${10 + appIndex}"
+      val devices        = clientDevices(headerRandom, app, vendorPublicIp)
 
       val requests = (totalRequests * app.volumeShare).toInt
       (0 until requests).foreach { _ =>
         val (definition, _) = pickWeighted(random, endpoints, endpointTotalWeight)(_._2)
-        val client          = clients(random.nextInt(clients.length))
+        val clientIndex     = random.nextInt(clients.length)
+        val client          = clients(clientIndex)
+        val device          = devices(clientIndex)(headerRandom.nextInt(devices(clientIndex).length))
         val timestamp       = randomBusinessSkewedTimestamp(random, windowStart, windowSeconds)
         val correlationId   = randomGuid(random)
         val requestId       = randomGuid(random)
@@ -68,6 +87,8 @@ class SampleLogGenerator {
           requestId,
           app.id,
           client._1,
+          vendorPublicIp,
+          device,
           s"[${definition.controller}][${definition.endpointName}] ${definition.displayName} for NINO : ${client._2} with correlationId : $correlationId"
         )
 
@@ -81,6 +102,8 @@ class SampleLogGenerator {
             requestId,
             app.id,
             client._1,
+            vendorPublicIp,
+            device,
             s"[${definition.controller}][${definition.endpointName}] Success response received with correlationId : $correlationId"
           )
         } else {
@@ -95,6 +118,8 @@ class SampleLogGenerator {
             requestId,
             app.id,
             client._1,
+            vendorPublicIp,
+            device,
             s"[${definition.controller}][${definition.endpointName}] Error response received with status: ${outcome.status} and body: $body with correlationId : $correlationId"
           )
         }
@@ -112,10 +137,45 @@ class SampleLogGenerator {
     requestId: String,
     appId: UUID,
     clientId: String,
+    vendorPublicIp: String,
+    device: SampleDevice,
     message: String
   ): String =
     s"${timestamp.format(TimestampFormat)} level=[$level] logger=[v3.controllers.${definition.controller}] " +
-      s"thread=[$thread] rid=[$requestId] appId=[$appId] clientId=[$clientId] message=[$message]"
+      s"thread=[$thread] rid=[$requestId] appId=[$appId] clientId=[$clientId] " +
+      s"govClientPublicIP=[${device.clientPublicIp}] govVendorPublicIP=[$vendorPublicIp] " +
+      s"govClientDeviceID=[${device.deviceId}] govClientLocalIPs=[${device.localIps}] " +
+      s"govVendorLicenseIDs=[${device.licenceIds}] message=[$message]"
+
+  /**
+   * Devices per client index. Addresses come from the RFC 5737 documentation ranges (198.51.100.0/24 for
+   * clients, 203.0.113.0/24 for the vendor's servers) so no real IP is ever published.
+   */
+  private def clientDevices(random: Random, app: SampleApplication, vendorPublicIp: String): IndexedSeq[IndexedSeq[SampleDevice]] = {
+    val software = app.softwareVersion.takeWhile(_ != '=')
+    def licence() = s"$software=${randomHex(random, 32)}"
+
+    if (app.singleSharedDevice) {
+      val device = SampleDevice(vendorPublicIp, randomGuid(random), "192.168.1.10", licence())
+      IndexedSeq.fill(app.clientCount)(IndexedSeq(device))
+    } else {
+      val licencePool = app.licenceCount.map(count => IndexedSeq.fill(count)(licence()))
+      (0 until app.clientCount).map { clientIndex =>
+        val licenceIds = licencePool.map(pool => pool(clientIndex % pool.length)).getOrElse(licence())
+        IndexedSeq.fill(random.between(1, 4)) {
+          SampleDevice(
+            clientPublicIp = s"198.51.100.${random.between(1, 255)}",
+            deviceId = randomGuid(random),
+            localIps = s"192.168.${random.between(0, 5)}.${random.between(2, 250)}",
+            licenceIds = licenceIds
+          )
+        }
+      }
+    }
+  }
+
+  private def randomHex(random: Random, count: Int): String =
+    (1 to count).map(_ => "0123456789ABCDEF".charAt(random.nextInt(16))).mkString
 
   private def pickOutcome(random: Random, endpointKey: String): Outcome = {
     val outcomes = outcomeOverrides.getOrElse(endpointKey, defaultOutcomes)
@@ -183,7 +243,9 @@ object SampleLogGenerator {
       "Sandbox",
       "taxoptimiser=v2021.1",
       clientCount = 4,
-      volumeShare = 0.12
+      volumeShare = 0.12,
+      // deliberately failing fraud prevention checks: one device, client IP = server IP, one licence
+      singleSharedDevice = true
     ),
     SampleApplication(
       UUID.fromString("b6f0a9d4-1c3e-4f7b-8a2d-5e9c0b7f6a38"),
@@ -191,7 +253,9 @@ object SampleLogGenerator {
       "Production",
       "booksflow=v4.2.0",
       clientCount = 8,
-      volumeShare = 0.28
+      volumeShare = 0.28,
+      // only two licences across all clients => fraud prevention licence warning
+      licenceCount = Some(2)
     )
   )
 

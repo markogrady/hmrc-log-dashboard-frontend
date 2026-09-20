@@ -123,14 +123,23 @@
         <span class="govuk-visually-hidden">@messages("dashboard.showing.context", vm.selectedApp.name, vm.selectedMonth.display)</span>
     </p>
 
-    @if(vm.summary.totalRequests > 0) {
+    <div class="govuk-button-group">
+        @if(vm.summary.totalRequests > 0) {
+            @govukButton(Button(
+                href = Some(controllers.routes.PdfController.exportPdf(vm.selectedApp.id, vm.selectedMonth.value, vm.selectedClient).url),
+                content = Text(messages("dashboard.exportPdf")),
+                classes = "govuk-button--secondary",
+                attributes = Map("download" -> "download")
+            ))
+        }
+
+        @* All-time check, so not gated on the selected month having requests. *@
         @govukButton(Button(
-            href = Some(controllers.routes.PdfController.exportPdf(vm.selectedApp.id, vm.selectedMonth.value, vm.selectedClient).url),
-            content = Text(messages("dashboard.exportPdf")),
-            classes = "govuk-button--secondary",
-            attributes = Map("download" -> "download")
+            href = Some(controllers.routes.FraudPreventionController.onPageLoad(vm.selectedApp.id).url),
+            content = Text(messages("dashboard.checkFraudHeaders")),
+            classes = "govuk-button--secondary"
         ))
-    }
+    </div>
 
     @for(area <- vm.summary.areas) {
         @govukDetails(Details(

@@ -5,6 +5,14 @@ that simulates HMRC's side of the API platform: it ingests log lines in the hmrc
 logback format (extended with `appId=[…]` and `clientId=[…]` MDC fields) and shows a
 Developer-Hub-style dashboard of MTD ITSA endpoint usage per application, client and month.
 
+Lines may also carry the request's fraud prevention headers as optional MDC fields after
+`clientId=[…]`, in this order: `govClientPublicIP=[…] govVendorPublicIP=[…] govClientDeviceID=[…]
+govClientLocalIPs=[…] govVendorLicenseIDs=[…]`. The dashboard's **Check fraud prevention headers**
+button runs checks over every request logged for the application: the server IP is never a client IP,
+and there are enough distinct client IPs, device IDs and local IPs to show testing on different
+networks and devices, with a warning when few distinct licence IDs are seen. Thresholds are under
+`fraud-prevention` in `conf/application.conf`.
+
 This is a rewrite of a .NET Blazor app to HMRC standards, modelled on
 [hmrc-frontend-scaffold.g8](https://github.com/hmrc/hmrc-frontend-scaffold.g8) and
 real MDTP services. The phased specification is in [docs/SPEC.md](docs/SPEC.md).

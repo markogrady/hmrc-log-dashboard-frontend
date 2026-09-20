@@ -108,6 +108,45 @@ class LogEntryRepositoryIntegrationSpec
       repository.lastTimestamp(appId).futureValue shouldBe Some(later)
     }
 
+    "group fraud prevention headers per request across all months, ignoring other applications" in {
+      def withHeaders(e: LogEntry, clientIp: String, deviceId: String): LogEntry =
+        e.copy(
+          govClientPublicIp = Some(clientIp),
+          govVendorPublicIp = Some("203.0.113.10"),
+          govClientDeviceId = Some(deviceId),
+          govClientLocalIps = Some("192.168.1.10"),
+          govVendorLicenseIds = Some("soft=AAAA")
+        )
+
+      repository
+        .insertMany(
+          Seq(
+            // one request: start + outcome lines carry the same headers and must count once
+            withHeaders(entry("r1"), "198.51.100.1", "device-1"),
+            withHeaders(entry("r1", kind = LogEventKind.Success), "198.51.100.1", "device-1"),
+            // same device, a different month
+            withHeaders(entry("r2", timestamp = Instant.parse("2026-02-03T10:00:00Z")), "198.51.100.1", "device-1"),
+            // headers only on the start line
+            withHeaders(entry("r3"), "198.51.100.2", "device-2"),
+            entry("r3", kind = LogEventKind.Success),
+            // no headers at all
+            entry("r4"),
+            // another application
+            withHeaders(entry("other"), "198.51.100.9", "device-9").copy(applicationId = Some(UUID.randomUUID()))
+          )
+        )
+        .futureValue
+
+      val combinations = repository.fraudHeaderCombinations(appId).futureValue
+
+      combinations.map(c => (c.govClientPublicIp, c.govClientDeviceId, c.requests)) should contain theSameElementsAs Seq(
+        (Some("198.51.100.1"), Some("device-1"), 2L),
+        (Some("198.51.100.2"), Some("device-2"), 1L),
+        (None, None, 1L)
+      )
+      combinations.find(_.govClientDeviceId.contains("device-2")).get.govVendorLicenseIds shouldBe Some("soft=AAAA")
+    }
+
     "find warnings with strict client matching" in {
       val monthStart = Instant.parse("2026-06-01T00:00:00Z")
       val monthEnd   = Instant.parse("2026-07-01T00:00:00Z")

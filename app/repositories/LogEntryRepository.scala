@@ -6,14 +6,14 @@ import javax.inject.{Inject, Singleton}
 import scala.concurrent.{ExecutionContext, Future}
 
 import org.bson.BsonNull
-import org.mongodb.scala.bson.BsonDocument
+import org.mongodb.scala.bson.{BsonDocument, BsonString}
 import org.mongodb.scala.model._
 import play.api.libs.json.{Format, Json, OFormat}
 import uk.gov.hmrc.mongo.MongoComponent
 import uk.gov.hmrc.mongo.play.json.PlayMongoRepository
 import uk.gov.hmrc.mongo.play.json.formats.MongoJavatimeFormats
 
-import models.{LogEntry, LogSeverity}
+import models.{FraudHeaderCombination, LogEntry, LogSeverity}
 
 object LogEntryRepository {
 
@@ -23,6 +23,9 @@ object LogEntryRepository {
     import models.EnumFormats._
     Json.format[LogEntry]
   }
+
+  private val fraudHeaderFields: Seq[String] =
+    Seq("govClientPublicIp", "govVendorPublicIp", "govClientDeviceId", "govClientLocalIps", "govVendorLicenseIds")
 }
 
 @Singleton
@@ -116,6 +119,42 @@ class LogEntryRepository @Inject() (mongoComponent: MongoComponent)(implicit ec:
         val id = doc.getDocument("_id")
         (id.getInt32("year").getValue, id.getInt32("month").getValue)
       })
+
+  /**
+   * Distinct combinations of fraud prevention header values across ALL of an application's requests
+   * (no month window). Lines are first collapsed to one row per correlationId so a request's start and
+   * outcome lines count once, then grouped by the five header values.
+   */
+  def fraudHeaderCombinations(appId: UUID): Future[Seq[FraudHeaderCombination]] = {
+    import LogEntryRepository.fraudHeaderFields
+    collection
+      .aggregate[BsonDocument](
+        Seq(
+          Aggregates.`match`(
+            Filters.and(Filters.equal("applicationId", appId.toString), Filters.ne("correlationId", BsonNull.VALUE))
+          ),
+          Aggregates.group("$correlationId", fraudHeaderFields.map(f => Accumulators.max(f, s"$$$f")) *),
+          Aggregates.group(
+            BsonDocument(fraudHeaderFields.map(f => f -> BsonString(s"$$$f"))),
+            Accumulators.sum("requests", 1)
+          )
+        )
+      )
+      .toFuture()
+      .map(_.map { doc =>
+        val id                           = doc.getDocument("_id")
+        def value(field: String): Option[String] =
+          Option(id.get(field)).filter(_.isString).map(_.asString.getValue)
+        FraudHeaderCombination(
+          govClientPublicIp = value("govClientPublicIp"),
+          govVendorPublicIp = value("govVendorPublicIp"),
+          govClientDeviceId = value("govClientDeviceId"),
+          govClientLocalIps = value("govClientLocalIps"),
+          govVendorLicenseIds = value("govVendorLicenseIds"),
+          requests = doc.getNumber("requests").longValue
+        )
+      })
+  }
 
   def lastTimestamp(appId: UUID): Future[Option[Instant]] =
     collection

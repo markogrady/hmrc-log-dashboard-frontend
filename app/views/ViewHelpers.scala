@@ -8,6 +8,7 @@ import uk.gov.hmrc.govukfrontend.views.viewmodels.content.Text
 import uk.gov.hmrc.govukfrontend.views.viewmodels.tag.Tag
 
 import models.HealthTag
+import models.viewmodels.CheckStatus
 
 object ViewHelpers {
 
@@ -15,6 +16,13 @@ object ViewHelpers {
     case HealthTag.Fix     => Tag(content = Text("Fix"), classes = "govuk-tag--red")
     case HealthTag.Review  => Tag(content = Text("Review"), classes = "govuk-tag--yellow")
     case HealthTag.Correct => Tag(content = Text("Correct"), classes = "govuk-tag--green")
+  }
+
+  def checkTag(status: CheckStatus): Tag = status match {
+    case CheckStatus.Fail    => Tag(content = Text("Fail"), classes = "govuk-tag--red")
+    case CheckStatus.Warning => Tag(content = Text("Warning"), classes = "govuk-tag--yellow")
+    case CheckStatus.NoData  => Tag(content = Text("No data"), classes = "govuk-tag--grey")
+    case CheckStatus.Pass    => Tag(content = Text("Pass"), classes = "govuk-tag--green")
   }
 
   def statusTag(status: Int): Tag =
